@@ -174,6 +174,11 @@ namespace codal
         void trigger(bool isFallback);
 
         /**
+         * Called from power manager after sleep.
+         */
+        void rebaseEvents();
+
+        /**
           * Enables interrupts for this timer instance.
           */
         virtual int enableInterrupts();
@@ -311,6 +316,11 @@ namespace codal
      * @return DEVICE_OK or DEVICE_NOT_SUPPORTED if no timer has been registered.
      */
     int system_timer_wait_ms(uint32_t period);
+
+    /**
+     * Called from power manager after sleep.
+     */
+    int system_timer_rebase_events();
 
     extern Timer* system_timer;
 }

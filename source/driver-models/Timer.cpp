@@ -376,6 +376,39 @@ void Timer::trigger(bool isFallback)
 }
 
 /**
+ * Called from power manager after sleep.
+ */
+void Timer::rebaseEvents()
+{
+    timer.setCompare(ccPeriodChannel, timer.captureCounter() + 10000000);
+
+    sync();
+
+    TimerEvent *eNext = timerEventList + eventListSize;
+
+    // Find the next event
+    nextTimerEvent = NULL;
+    for ( TimerEvent *e = timerEventList; e < eNext; e++)
+    {
+        if (e->id != 0 && (nextTimerEvent == NULL || (e->timestamp < nextTimerEvent->timestamp)))
+            nextTimerEvent = e;
+    }
+
+    if (nextTimerEvent)
+    {
+        CODAL_TIMESTAMP shift = currentTimeUs + CODAL_TIMER_MINIMUM_PERIOD - nextTimerEvent->timestamp;
+
+        for ( TimerEvent *e = timerEventList; e < eNext; e++)
+        {
+            if ( e->id != 0)
+                e->timestamp += shift;
+        }
+
+        triggerIn( CODAL_TIMER_MINIMUM_PERIOD);
+    }
+}
+
+/**
  * Destructor for this Timer instance
  */
 Timer::~Timer()
@@ -576,4 +609,18 @@ int codal::system_timer_wait_us(uint32_t period)
 int codal::system_timer_wait_ms(uint32_t period)
 {
     return system_timer_wait_us(period * 1000);
+}
+
+/**
+ * Called from power manager after sleep.
+ *
+ * @return DEVICE_OK or DEVICE_NOT_SUPPORTED if no timer has been registered.
+ */
+int codal::system_timer_rebase_events()
+{
+    if(system_timer == NULL)
+        return DEVICE_NOT_SUPPORTED;
+
+    system_timer->rebaseEvents();
+    return DEVICE_OK;
 }
