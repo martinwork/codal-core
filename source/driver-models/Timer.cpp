@@ -378,34 +378,36 @@ void Timer::trigger(bool isFallback)
 /**
  * Called from power manager after sleep.
  */
-void Timer::rebaseEvents()
+void Timer::deepSleepWakeUp( uint32_t tickStart, uint32_t tickEnd, uint32_t sleepMillis, uint32_t sleepMicros)
 {
-    timer.setCompare(ccPeriodChannel, timer.captureCounter() + 10000000);
+    CODAL_TIMESTAMP time0 = currentTimeUs;
+
+    uint16_t elapsed = (uint16_t) ( tickStart -  sigma);
+    sigma = (uint16_t) tickStart;
+    currentTimeUs += elapsed;
+    delta += elapsed;
+    while (delta >= 1000) {
+        currentTime++;
+        delta -= 1000;
+    }
+
+    currentTimeUs += CODAL_TIMESTAMP( sleepMillis) * 1000;
+    currentTimeUs += sleepMicros;
+
+    currentTime   += sleepMillis;
+    sigma = (uint16_t) tickEnd;
+    delta += sleepMicros;
+    while (delta >= 1000) {
+        currentTime++;
+        delta -= 1000;
+    }
 
     sync();
 
-    TimerEvent *eNext = timerEventList + eventListSize;
+    DMESG( "deepSleepWakeUp after %u", (unsigned int) (currentTimeUs - time0));
 
-    // Find the next event
-    nextTimerEvent = NULL;
-    for ( TimerEvent *e = timerEventList; e < eNext; e++)
-    {
-        if (e->id != 0 && (nextTimerEvent == NULL || (e->timestamp < nextTimerEvent->timestamp)))
-            nextTimerEvent = e;
-    }
-
-    if (nextTimerEvent)
-    {
-        CODAL_TIMESTAMP shift = currentTimeUs + CODAL_TIMER_MINIMUM_PERIOD - nextTimerEvent->timestamp;
-
-        for ( TimerEvent *e = timerEventList; e < eNext; e++)
-        {
-            if ( e->id != 0)
-                e->timestamp += shift;
-        }
-
-        triggerIn( CODAL_TIMER_MINIMUM_PERIOD);
-    }
+    timer.setCompare(ccPeriodChannel, timer.captureCounter() + 10000000);
+    recomputeNextTimerEvent();
 }
 
 /**
@@ -612,15 +614,15 @@ int codal::system_timer_wait_ms(uint32_t period)
 }
 
 /**
- * Called from power manager after sleep.
+ * Called from power manager after deep sleep.
  *
  * @return DEVICE_OK or DEVICE_NOT_SUPPORTED if no timer has been registered.
  */
-int codal::system_timer_rebase_events()
+int codal::system_timer_deepsleep_wakeup( uint32_t tickStart, uint32_t tickEnd, uint32_t sleepMillis, uint32_t sleepMicros)
 {
     if(system_timer == NULL)
         return DEVICE_NOT_SUPPORTED;
 
-    system_timer->rebaseEvents();
+    system_timer->deepSleepWakeUp( tickStart, tickEnd, sleepMillis, sleepMicros);
     return DEVICE_OK;
 }

@@ -176,7 +176,7 @@ namespace codal
         /**
          * Called from power manager after sleep.
          */
-        void rebaseEvents();
+        void deepSleepWakeUp( uint32_t tickStart, uint32_t tickEnd, uint32_t sleepMillis, uint32_t sleepMicros);
 
         /**
           * Enables interrupts for this timer instance.
@@ -320,7 +320,7 @@ namespace codal
     /**
      * Called from power manager after sleep.
      */
-    int system_timer_rebase_events();
+    int system_timer_deepsleep_wakeup( uint32_t tickStart, uint32_t tickEnd, uint32_t sleepMillis, uint32_t sleepMicros);
 
     extern Timer* system_timer;
 }
