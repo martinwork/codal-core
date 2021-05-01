@@ -156,13 +156,13 @@ int Timer::enableInterrupts()
     return DEVICE_OK;
 }
 
-int Timer::setEvent(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, bool repeat)
+int Timer::setEvent(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, bool repeat, uint8_t flags)
 {
     TimerEvent *evt = getTimerEvent();
     if (evt == NULL)
         return DEVICE_NO_RESOURCES;
 
-    evt->set(getTimeUs() + period, repeat ? period: 0, id, value);
+    evt->set(getTimeUs() + period, repeat ? period: 0, id, value, flags);
 
     target_disable_irq();
 
@@ -220,10 +220,12 @@ int Timer::cancel(uint16_t id, uint16_t value)
  * @param id the ID to be used in event generation.
  *
  * @param value the value to place into the Events' value field.
+ *
+ * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
  */
-int Timer::eventAfter(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int Timer::eventAfter(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
-    return eventAfterUs(period*1000, id, value);
+    return eventAfterUs(period*1000, id, value, flags);
 }
 
 /**
@@ -235,10 +237,12 @@ int Timer::eventAfter(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
  * @param id the ID to be used in event generation.
  *
  * @param value the value to place into the Events' value field.
+ *
+ * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
  */
-int Timer::eventAfterUs(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int Timer::eventAfterUs(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
-    return setEvent(period, id, value, false);
+    return setEvent(period, id, value, false, flags);
 }
 
 /**
@@ -250,10 +254,12 @@ int Timer::eventAfterUs(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
  * @param id the ID to be used in event generation.
  *
  * @param value the value to place into the Events' value field.
+ *
+ * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
  */
-int Timer::eventEvery(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int Timer::eventEvery(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
-    return eventEveryUs(period*1000, id, value);
+    return eventEveryUs(period*1000, id, value, flags);
 }
 
 /**
@@ -265,10 +271,12 @@ int Timer::eventEvery(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
  * @param id the ID to be used in event generation.
  *
  * @param value the value to place into the Events' value field.
+ *
+ * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
  */
-int Timer::eventEveryUs(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int Timer::eventEveryUs(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
-    return setEvent(period, id, value, true);
+    return setEvent(period, id, value, true, flags);
 }
 
 /**
@@ -375,13 +383,46 @@ void Timer::trigger(bool isFallback)
     recomputeNextTimerEvent();
 }
 
+
+TimerEvent *Timer::deepSleepWakeUpEvent()
+{
+    TimerEvent *wakeUpEvent = NULL;
+
+    TimerEvent *eNext = timerEventList + eventListSize;
+    for ( TimerEvent *e = timerEventList; e < eNext; e++)
+    {
+        DMESGF( "id %d value %d flags %d time %d", (int) e->id, (int) e->value, (int) e->flags, (int) e->timestamp);
+        if ( e->id != 0 && e->flags & CODAL_TIMER_EVENT_FLAGS_WAKEUP)
+        {
+            if ( wakeUpEvent == NULL || (e->timestamp < wakeUpEvent->timestamp))
+                wakeUpEvent = e;
+        }
+    }
+
+    return wakeUpEvent;
+}
+
+/**
+ * Determine the time of the next wake-up event.
+ * @param timestamp Pointer to CODAL_TIMESTAMP to receive the time.
+ * @return true if there is an event.
+ */
+bool Timer::deepSleepWakeUpTime( CODAL_TIMESTAMP *timestamp)
+{
+    TimerEvent *wakeUpEvent = deepSleepWakeUpEvent();
+
+    if ( wakeUpEvent == NULL)
+        return false;
+
+    *timestamp = wakeUpEvent->timestamp;
+    return true;
+}
+
 /**
  * Called from power manager after sleep.
  */
 void Timer::deepSleepWakeUp( uint32_t tickStart, uint32_t tickEnd, uint32_t sleepMillis, uint32_t sleepMicros)
 {
-    CODAL_TIMESTAMP time0 = currentTimeUs;
-
     uint16_t elapsed = (uint16_t) ( tickStart -  sigma);
     sigma = (uint16_t) tickStart;
     currentTimeUs += elapsed;
@@ -404,10 +445,37 @@ void Timer::deepSleepWakeUp( uint32_t tickStart, uint32_t tickEnd, uint32_t slee
 
     sync();
 
-    DMESG( "deepSleepWakeUp after %u", (unsigned int) (currentTimeUs - time0));
-
     timer.setCompare(ccPeriodChannel, timer.captureCounter() + 10000000);
-    recomputeNextTimerEvent();
+
+    // Bring any past events to the present and find the next event
+    // All events that would have fired during deep sleep will fire once, but obviously late.
+    // For some periodic events that will mean some events are dropped,
+    // but subsequent events will be on the same schedule as before deep sleep.
+    CODAL_TIMESTAMP present = currentTimeUs + CODAL_TIMER_MINIMUM_PERIOD;
+    nextTimerEvent = NULL;
+    TimerEvent *eNext = timerEventList + eventListSize;
+    for ( TimerEvent *e = timerEventList; e < eNext; e++)
+    {
+        if ( e->id != 0)
+        {
+            if ( e->period == 0)
+            {
+                if ( e->timestamp < present)
+                  e->timestamp = present;
+            }
+            else
+            {
+                while ( e->timestamp + e->period < present)
+                  e->timestamp += e->period;
+            }
+
+            if ( nextTimerEvent == NULL || nextTimerEvent->timestamp > e->timestamp)
+                nextTimerEvent = e;
+        }
+    }
+
+    if (nextTimerEvent)
+        triggerIn( CODAL_TIMER_MINIMUM_PERIOD);
 }
 
 /**
@@ -456,14 +524,16 @@ CODAL_TIMESTAMP codal::system_timer_current_time_us()
   *
   * @param the value to fire against the current system_timer id.
   *
+  * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
+  *
   * @return DEVICE_OK or DEVICE_NOT_SUPPORTED if no timer has been registered.
   */
-int codal::system_timer_event_every_us(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int codal::system_timer_event_every_us(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
     if(system_timer == NULL)
         return DEVICE_NOT_SUPPORTED;
 
-    return system_timer->eventEveryUs(period, id, value);
+    return system_timer->eventEveryUs(period, id, value, flags);
 }
 
 /**
@@ -473,14 +543,16 @@ int codal::system_timer_event_every_us(CODAL_TIMESTAMP period, uint16_t id, uint
   *
   * @param the value to fire against the current system_timer id.
   *
+  * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
+  *
   * @return DEVICE_OK or DEVICE_NOT_SUPPORTED if no timer has been registered.
   */
-int codal::system_timer_event_after_us(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int codal::system_timer_event_after_us(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
     if(system_timer == NULL)
         return DEVICE_NOT_SUPPORTED;
 
-    return system_timer->eventAfterUs(period, id, value);
+    return system_timer->eventAfterUs(period, id, value, flags);
 }
 
 /**
@@ -490,14 +562,16 @@ int codal::system_timer_event_after_us(CODAL_TIMESTAMP period, uint16_t id, uint
   *
   * @param the value to fire against the current system_timer id.
   *
+  * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
+  *
   * @return DEVICE_OK or DEVICE_NOT_SUPPORTED if no timer has been registered.
   */
-int codal::system_timer_event_every(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int codal::system_timer_event_every(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
     if(system_timer == NULL)
         return DEVICE_NOT_SUPPORTED;
 
-    return system_timer->eventEvery(period, id, value);
+    return system_timer->eventEvery(period, id, value, flags);
 }
 
 /**
@@ -507,14 +581,16 @@ int codal::system_timer_event_every(CODAL_TIMESTAMP period, uint16_t id, uint16_
   *
   * @param the value to fire against the current system_timer id.
   *
+  * @param flags CODAL_TIMER_EVENT_FLAGS_WAKEUP for event to trigger deep sleep wake-up.
+  *
   * @return DEVICE_OK or DEVICE_NOT_SUPPORTED if no timer has been registered.
   */
-int codal::system_timer_event_after(CODAL_TIMESTAMP period, uint16_t id, uint16_t value)
+int codal::system_timer_event_after(CODAL_TIMESTAMP period, uint16_t id, uint16_t value, uint8_t flags)
 {
     if(system_timer == NULL)
         return DEVICE_NOT_SUPPORTED;
 
-    return system_timer->eventAfter(period, id, value);
+    return system_timer->eventAfter(period, id, value, flags);
 }
 
 /**
@@ -611,6 +687,19 @@ int codal::system_timer_wait_us(uint32_t period)
 int codal::system_timer_wait_ms(uint32_t period)
 {
     return system_timer_wait_us(period * 1000);
+}
+
+/**
+ * Determine the time of the next wake up event.
+ * @param timestamp Pointer to CODAL_TIMESTAMP to receive the time.
+ * @return true if there is an event.
+ */
+bool codal::system_timer_deepsleep_wakeup_time( CODAL_TIMESTAMP *timestamp)
+{
+    if(system_timer == NULL)
+        return false;
+
+    return system_timer->deepSleepWakeUpTime(timestamp);
 }
 
 /**
