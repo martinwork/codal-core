@@ -52,12 +52,12 @@ namespace codal
         /**
           * Increment reference count.
           */
-        void incr();
+        void incr(int ref);
 
         /**
             * Decrement reference count.
             */
-        void decr();
+        void decr(int ref);
 
         /**
           * Initializes for one outstanding reference.
@@ -97,6 +97,10 @@ namespace codal
         static const uint16_t emptyData[] __attribute__((aligned(4))) = {0xffff, __VA_ARGS__};
     #define REF_COUNTED_INIT(ptr) ptr->init()
     #endif
+
+    void RefCounted_op( RefCounted *t, int ref);
+    void RefCounted_alltimeunique();
+    void RefCounted_dump(void);
 }
 
 

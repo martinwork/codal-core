@@ -297,7 +297,7 @@ void* device_malloc (size_t size)
 
 #if CONFIG_ENABLED(CODAL_LOW_LEVEL_VALIDATION)
         if(device_create_heap((PROCESSOR_WORD_TYPE)(codal_heap_start), (PROCESSOR_WORD_TYPE)(DEVICE_STACK_BASE) - (PROCESSOR_WORD_TYPE)(DEVICE_STACK_SIZE)) == DEVICE_INVALID_PARAMETER)
-            target_panic(DEVICE_HEAP_ERROR);
+            target_panic(DEVICE_HEAP_ERROR+1);
 #else
         device_create_heap((PROCESSOR_WORD_TYPE)(codal_heap_start), (PROCESSOR_WORD_TYPE)(DEVICE_STACK_BASE) - (PROCESSOR_WORD_TYPE)(DEVICE_STACK_SIZE));
 #endif
@@ -368,14 +368,14 @@ void device_free (void *mem)
             // The memory block given is part of this heap, so we can simply
             // flag that this memory area is now free, and we're done.
             if (*cb == 0 || *cb & DEVICE_HEAP_BLOCK_FREE)
-                target_panic(DEVICE_HEAP_ERROR);
+                target_panic(DEVICE_HEAP_ERROR+2);
             *cb |= DEVICE_HEAP_BLOCK_FREE;
             return;
         }
     }
 
     // If we reach here, then the memory is not part of any registered heap.
-    target_panic(DEVICE_HEAP_ERROR);
+    target_panic(DEVICE_HEAP_ERROR+3);
 }
 
 void* calloc (size_t num, size_t size)

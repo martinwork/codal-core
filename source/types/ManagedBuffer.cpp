@@ -108,7 +108,7 @@ ManagedBuffer::ManagedBuffer(uint8_t *data, int length)
 ManagedBuffer::ManagedBuffer(const ManagedBuffer &buffer)
 {
     ptr = buffer.ptr;
-    ptr->incr();
+    ptr->incr(4);
 }
 
 /**
@@ -120,7 +120,7 @@ ManagedBuffer::ManagedBuffer(const ManagedBuffer &buffer)
 ManagedBuffer::ManagedBuffer(BufferData *p)
 {
     ptr = p;
-    ptr->incr();
+    ptr->incr(5);
 }
 
 /**
@@ -157,7 +157,7 @@ void ManagedBuffer::init(uint8_t *data, int length, BufferInitialize initialize)
  */
 ManagedBuffer::~ManagedBuffer()
 {
-    ptr->decr();
+    ptr->decr(22);
 }
 
 /**
@@ -184,9 +184,9 @@ ManagedBuffer& ManagedBuffer::operator = (const ManagedBuffer &p)
     if(ptr == p.ptr)
         return *this;
 
-    ptr->decr();
+    ptr->decr(23);
     ptr = p.ptr;
-    ptr->incr();
+    ptr->incr(6);
 
     return *this;
 }

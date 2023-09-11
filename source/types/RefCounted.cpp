@@ -29,6 +29,8 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalConfig.h"
 #include "CodalDevice.h"
 #include "RefCounted.h"
+#include "CodalDMesg.h"
+#include "CodalFiber.h"
 
 using namespace codal;
 
@@ -39,7 +41,7 @@ using namespace codal;
   *
   * @return true if the object resides in flash memory, false otherwise.
   */
-static inline bool isReadOnlyInline(RefCounted *t)
+static inline bool isReadOnlyInline(RefCounted *t, int ref)
 {
     uint32_t refCount = t->refCount;
 
@@ -47,9 +49,23 @@ static inline bool isReadOnlyInline(RefCounted *t)
         return true; // object in flash
 
     // Do some sanity checking while we're here
-    if (refCount == 1 ||        // object should have been deleted
-        (refCount & 1) == 0)    // refCount doesn't look right
-        target_panic(DEVICE_HEAP_ERROR);
+    if (refCount == 1)        // object should have been deleted
+    {
+        DMESG("%p,%d,%d refCount == 1", t, (int) t->refCount, ref);
+        RefCounted_dump();
+        DMESGF("************************************************************************************************");
+        target_panic(DEVICE_HEAP_ERROR+4);
+    }
+
+    if ((refCount & 1) == 0)    // refCount doesn't look right
+    {
+        DMESG("%p,%d,%d (refCount & 1) == 0", t, (int) t->refCount, ref);
+        RefCounted_dump();
+        DMESGF("************************************************************************************************");
+        target_panic(DEVICE_HEAP_ERROR+5);
+    }
+
+    RefCounted_op( t, ref);
 
     // Not read only
     return false;
@@ -62,24 +78,24 @@ static inline bool isReadOnlyInline(RefCounted *t)
   */
 bool RefCounted::isReadOnly()
 {
-    return isReadOnlyInline(this);
+    return isReadOnlyInline(this,0);
 }
 
 /**
   * Increment reference count.
   */
-void RefCounted::incr()
+void RefCounted::incr( int ref)
 {
-    if (!isReadOnlyInline(this))
+    if (!isReadOnlyInline(this,ref))
       __sync_fetch_and_add(&refCount, 2);
 }
 
 /**
   * Decrement reference count.
   */
-void RefCounted::decr()
+void RefCounted::decr( int ref)
 {
-    if (isReadOnlyInline(this))
+    if (isReadOnlyInline(this,ref))
         return;
 
     if (__sync_fetch_and_add(&refCount, -2) == 3 ) {

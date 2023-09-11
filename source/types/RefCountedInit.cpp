@@ -25,6 +25,77 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalConfig.h"
 #include "CodalDevice.h"
 #include "RefCounted.h"
+#include "CodalDMesg.h"
+#include <list>
+
+namespace codal
+{
+  typedef std::list<RefCounted *> RefCounted_list;
+  RefCounted_list theList;
+  RefCounted_list theAllTimeList;
+
+#define opsSIZE 20
+
+  RefCounted *opsPtr[ opsSIZE];
+  int         opsRef[ opsSIZE];
+  int         opsIdx = 0;
+
+  void RefCounted_dump(void)
+  {
+    DMESG("\r\nRefCounted_dump");
+    DMESG("ops");
+    int idx = opsIdx;
+    for ( int op = 0; op < opsSIZE; op++)
+    {
+      DMESG("%p,%d", opsPtr[idx], opsRef[idx]);
+      idx++;
+      if (idx >= opsSIZE)
+        idx = 0;
+    }
+    DMESG("current");
+    for ( RefCounted_list::iterator it = theList.begin(); it != theList.end(); it++)
+    {
+      RefCounted *t = (RefCounted *) *it;
+      DMESG("%p,%d", t, (int) t->refCount);
+    }
+    DMESG("all time");
+    for ( RefCounted_list::iterator it = theAllTimeList.begin(); it != theAllTimeList.end(); it++)
+    {
+      RefCounted *t = (RefCounted *) *it;
+      DMESG("%p", t);
+    }
+  }
+
+  void RefCounted_op( RefCounted *t, int ref)
+  {
+    opsPtr[opsIdx] = t;
+    opsRef[opsIdx] = ref;
+    opsIdx++;
+    if (opsIdx >= opsSIZE)
+      opsIdx = 0;
+  }
+
+  void RefCounted_add( RefCounted *t)
+  {
+    RefCounted_op( t, 30);
+    theList.push_back(t);
+    theAllTimeList.push_back(t);
+  }
+
+  void RefCounted_remove( RefCounted *t)
+  {
+    RefCounted_op( t, 31);
+    theList.remove(t);
+  }
+
+  void RefCounted_alltimeunique()
+  {
+    RefCounted_op( 0, 32);
+    theAllTimeList.sort();
+    RefCounted_op( 0, 33);
+    theAllTimeList.unique();
+  }
+}
 
 using namespace codal;
 // These two are placed in a separate file, so that they can be overriden by user code.
@@ -34,6 +105,7 @@ using namespace codal;
   */
 void RefCounted::destroy()
 {
+    RefCounted_remove( this);
     free(this);
 }
 
@@ -44,4 +116,5 @@ void RefCounted::init()
 {
     // Initialize to one reference (lowest bit set to 1)
     refCount = 3;
+    RefCounted_add( this);
 }
