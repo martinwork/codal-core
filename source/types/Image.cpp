@@ -102,7 +102,7 @@ Image::Image(const int16_t x, const int16_t y)
 Image::Image(const Image &image)
 {
     ptr = image.ptr;
-    ptr->incr(1);
+    ptr->incr( this, "iImgImg");
 }
 
 /**
@@ -219,7 +219,7 @@ Image::Image(ImageData *p)
     }
 
     ptr = p;
-    ptr->incr(2);
+    ptr->incr( this, "iImgDat");
 }
 
 /**
@@ -262,7 +262,7 @@ Image::Image(const int16_t x, const int16_t y, const uint8_t *bitmap)
   */
 Image::~Image()
 {
-    ptr->decr(20);
+    ptr->decr( this, "dImg~");
 }
 
 /**
@@ -332,9 +332,9 @@ Image& Image::operator = (const Image& i)
     if(ptr == i.ptr)
         return *this;
 
-    ptr->decr(21);
+    ptr->decr( this, "dImg=");
     ptr = i.ptr;
-    ptr->incr(3);
+    ptr->incr( this, "iImg=");
 
     return *this;
 }

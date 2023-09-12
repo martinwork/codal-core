@@ -41,7 +41,7 @@ using namespace codal;
   *
   * @return true if the object resides in flash memory, false otherwise.
   */
-static inline bool isReadOnlyInline(RefCounted *t, int ref)
+static inline bool isReadOnlyInline(RefCounted *t, void *obj, const char *ref)
 {
     uint32_t refCount = t->refCount;
 
@@ -51,7 +51,7 @@ static inline bool isReadOnlyInline(RefCounted *t, int ref)
     // Do some sanity checking while we're here
     if (refCount == 1)        // object should have been deleted
     {
-        DMESG("%p,%d,%d refCount == 1", t, (int) t->refCount, ref);
+        DMESG("\r\n%p,%d,%p::%s refCount == 1", t, (int) t->refCount, obj, ref);
         RefCounted_dump();
         DMESGF("************************************************************************************************");
         target_panic(DEVICE_HEAP_ERROR+4);
@@ -59,13 +59,13 @@ static inline bool isReadOnlyInline(RefCounted *t, int ref)
 
     if ((refCount & 1) == 0)    // refCount doesn't look right
     {
-        DMESG("%p,%d,%d (refCount & 1) == 0", t, (int) t->refCount, ref);
+        DMESG("\r\n%p,%d,%p::%s (refCount & 1) == 0", t, (int) t->refCount, obj, ref);
         RefCounted_dump();
         DMESGF("************************************************************************************************");
         target_panic(DEVICE_HEAP_ERROR+5);
     }
 
-    RefCounted_op( t, ref);
+    RefCounted_op( t, obj, ref);
 
     // Not read only
     return false;
@@ -78,27 +78,31 @@ static inline bool isReadOnlyInline(RefCounted *t, int ref)
   */
 bool RefCounted::isReadOnly()
 {
-    return isReadOnlyInline(this,0);
+    return isReadOnlyInline(this,NULL,"isRO");
 }
 
 /**
   * Increment reference count.
   */
-void RefCounted::incr( int ref)
+void RefCounted::incr( void *obj, const char *ref)
 {
-    if (!isReadOnlyInline(this,ref))
+		target_disable_irq();
+    if (!isReadOnlyInline(this,obj,ref))
       __sync_fetch_and_add(&refCount, 2);
+		target_enable_irq();
 }
 
 /**
   * Decrement reference count.
   */
-void RefCounted::decr( int ref)
+void RefCounted::decr( void *obj, const char *ref)
 {
-    if (isReadOnlyInline(this,ref))
-        return;
-
-    if (__sync_fetch_and_add(&refCount, -2) == 3 ) {
-        destroy();
+		target_disable_irq();
+    if ( !isReadOnlyInline(this,obj,ref))
+    {
+        if (__sync_fetch_and_add(&refCount, -2) == 3 ) {
+            destroy(obj);
+        }
     }
+		target_enable_irq();
 }

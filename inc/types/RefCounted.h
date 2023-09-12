@@ -52,22 +52,22 @@ namespace codal
         /**
           * Increment reference count.
           */
-        void incr(int ref);
+        void incr( void *obj, const char *ref);
 
         /**
             * Decrement reference count.
             */
-        void decr(int ref);
+        void decr( void *obj, const char *ref);
 
         /**
           * Initializes for one outstanding reference.
           */
-        void init();
+        void init( void *obj);
 
         /**
           * Releases the current instance.
           */
-        void destroy();
+        void destroy( void *obj);
 
         /**
           * Checks if the object resides in flash memory.
@@ -90,16 +90,16 @@ namespace codal
         static const uint16_t emptyData[]                                                              \
             __attribute__((aligned(4))) = {0xffff, REF_TAG, __VA_ARGS__};
     #define REF_COUNTED_INIT(ptr)                                                                      \
-        ptr->init();                                                                                   \
+        ptr->init(this);                                                                                   \
         ptr->tag = REF_TAG
     #else
     #define REF_COUNTED_DEF_EMPTY(className, ...)                                                      \
         static const uint16_t emptyData[] __attribute__((aligned(4))) = {0xffff, __VA_ARGS__};
-    #define REF_COUNTED_INIT(ptr) ptr->init()
+    #define REF_COUNTED_INIT(ptr) ptr->init(this)
     #endif
 
-    void RefCounted_op( RefCounted *t, int ref);
-    void RefCounted_alltimeunique();
+    void RefCounted_op( RefCounted *t, void *obj, const char *ref);
+    //void RefCounted_alltimeunique();
     void RefCounted_dump(void);
 }
 

@@ -102,7 +102,7 @@ ManagedString::ManagedString(StringData *p)
     }
 
     ptr = p;
-    ptr->incr(7);
+    ptr->incr( this, "iStrDat");
 }
 
 /**
@@ -266,7 +266,7 @@ ManagedString::ManagedString(const char *str, const int16_t length)
 ManagedString::ManagedString(const ManagedString &s)
 {
     ptr = s.ptr;
-    ptr->incr(8);
+    ptr->incr( this, "iStrStr");
 }
 
 
@@ -294,7 +294,7 @@ ManagedString::ManagedString()
   */
 ManagedString::~ManagedString()
 {
-    ptr->decr(24);
+    ptr->decr( this, "dStr~");
 }
 
 /**
@@ -321,9 +321,9 @@ ManagedString& ManagedString::operator = (const ManagedString& s)
     if (this->ptr == s.ptr)
         return *this;
 
-    ptr->decr(25);
+    ptr->decr( this, "dStr=");
     ptr = s.ptr;
-    ptr->incr(9);
+    ptr->incr( this, "iStr=");
 
     return *this;
 }

@@ -108,7 +108,7 @@ ManagedBuffer::ManagedBuffer(uint8_t *data, int length)
 ManagedBuffer::ManagedBuffer(const ManagedBuffer &buffer)
 {
     ptr = buffer.ptr;
-    ptr->incr(4);
+    ptr->incr( this, "iBufBuf");
 }
 
 /**
@@ -120,7 +120,7 @@ ManagedBuffer::ManagedBuffer(const ManagedBuffer &buffer)
 ManagedBuffer::ManagedBuffer(BufferData *p)
 {
     ptr = p;
-    ptr->incr(5);
+    ptr->incr( this, "iBufDat");
 }
 
 /**
@@ -157,7 +157,7 @@ void ManagedBuffer::init(uint8_t *data, int length, BufferInitialize initialize)
  */
 ManagedBuffer::~ManagedBuffer()
 {
-    ptr->decr(22);
+    ptr->decr( this, "dBuf~");
 }
 
 /**
@@ -184,9 +184,9 @@ ManagedBuffer& ManagedBuffer::operator = (const ManagedBuffer &p)
     if(ptr == p.ptr)
         return *this;
 
-    ptr->decr(23);
+    ptr->decr( this, "dBuf=");
     ptr = p.ptr;
-    ptr->incr(6);
+    ptr->incr( this, "iBuf=");
 
     return *this;
 }
@@ -270,6 +270,7 @@ int ManagedBuffer::getByte(int position)
   */
 BufferData *ManagedBuffer::leakData()
 {
+    RefCounted_op( ptr, this, "leakData");
     BufferData* res = ptr;
     initEmpty();
     return res;

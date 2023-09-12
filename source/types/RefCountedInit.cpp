@@ -32,22 +32,27 @@ namespace codal
 {
   typedef std::list<RefCounted *> RefCounted_list;
   RefCounted_list theList;
-  RefCounted_list theAllTimeList;
+  //RefCounted_list theAllTimeList;
 
-#define opsSIZE 20
+#define opsSIZE 50
+
+  unsigned int opsUnq = 0;
+  unsigned int opsSeq[ opsSIZE];
 
   RefCounted *opsPtr[ opsSIZE];
-  int         opsRef[ opsSIZE];
+  int         opsCnt[ opsSIZE];
+  void       *opsObj[ opsSIZE];
+  char        opsRef[ opsSIZE][10];
   int         opsIdx = 0;
 
   void RefCounted_dump(void)
   {
     DMESG("\r\nRefCounted_dump");
-    DMESG("ops");
+    DMESG("ops: ptr, count, object, fn");
     int idx = opsIdx;
     for ( int op = 0; op < opsSIZE; op++)
     {
-      DMESG("%p,%d", opsPtr[idx], opsRef[idx]);
+      DMESG("%u:%p,%d,%p::%s", opsSeq[idx], opsPtr[idx], (int) opsCnt[idx], opsObj[idx], opsRef[idx]);
       idx++;
       if (idx >= opsSIZE)
         idx = 0;
@@ -58,43 +63,47 @@ namespace codal
       RefCounted *t = (RefCounted *) *it;
       DMESG("%p,%d", t, (int) t->refCount);
     }
-    DMESG("all time");
-    for ( RefCounted_list::iterator it = theAllTimeList.begin(); it != theAllTimeList.end(); it++)
-    {
-      RefCounted *t = (RefCounted *) *it;
-      DMESG("%p", t);
-    }
+    //DMESG("all time");
+    //for ( RefCounted_list::iterator it = theAllTimeList.begin(); it != theAllTimeList.end(); it++)
+    //{
+    //  RefCounted *t = (RefCounted *) *it;
+    //  DMESG("%p", t);
+    //}
   }
 
-  void RefCounted_op( RefCounted *t, int ref)
+  void RefCounted_op( RefCounted *t, void *obj, const char *ref)
   {
+    opsSeq[opsIdx] = opsUnq;
+    opsUnq++;
     opsPtr[opsIdx] = t;
-    opsRef[opsIdx] = ref;
+    opsCnt[opsIdx] = t->refCount;
+    opsObj[opsIdx] = obj;
+    strcpy( opsRef[opsIdx], ref);
     opsIdx++;
     if (opsIdx >= opsSIZE)
       opsIdx = 0;
   }
 
-  void RefCounted_add( RefCounted *t)
+  void RefCounted_add( RefCounted *t, void *obj)
   {
-    RefCounted_op( t, 30);
+    RefCounted_op( t, obj, "init");
     theList.push_back(t);
-    theAllTimeList.push_back(t);
+    //theAllTimeList.push_back(t);
   }
 
-  void RefCounted_remove( RefCounted *t)
+  void RefCounted_remove( RefCounted *t, void *obj)
   {
-    RefCounted_op( t, 31);
+    RefCounted_op( t, obj, "destroy");
     theList.remove(t);
   }
 
-  void RefCounted_alltimeunique()
-  {
-    RefCounted_op( 0, 32);
-    theAllTimeList.sort();
-    RefCounted_op( 0, 33);
-    theAllTimeList.unique();
-  }
+  //void RefCounted_alltimeunique()
+  //{
+  //  RefCounted_op( 0, "sort");
+  //  theAllTimeList.sort();
+  //  RefCounted_op( 0, "unique");
+  //  theAllTimeList.unique();
+  //}
 }
 
 using namespace codal;
@@ -103,18 +112,22 @@ using namespace codal;
 /**
   * Releases the current instance.
   */
-void RefCounted::destroy()
+void RefCounted::destroy( void *obj)
 {
-    RefCounted_remove( this);
+		target_disable_irq();
+    RefCounted_remove( this, obj);
     free(this);
+		target_enable_irq();
 }
 
 /**
   * Initializes for one outstanding reference.
   */
-void RefCounted::init()
+void RefCounted::init( void *obj)
 {
+		target_disable_irq();
     // Initialize to one reference (lowest bit set to 1)
     refCount = 3;
-    RefCounted_add( this);
+    RefCounted_add( this, obj);
+		target_enable_irq();
 }
