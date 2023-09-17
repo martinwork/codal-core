@@ -86,10 +86,8 @@ bool RefCounted::isReadOnly()
   */
 void RefCounted::incr( void *obj, const char *ref)
 {
-		target_disable_irq();
     if (!isReadOnlyInline(this,obj,ref))
       __sync_fetch_and_add(&refCount, 2);
-		target_enable_irq();
 }
 
 /**
@@ -97,12 +95,10 @@ void RefCounted::incr( void *obj, const char *ref)
   */
 void RefCounted::decr( void *obj, const char *ref)
 {
-		target_disable_irq();
     if ( !isReadOnlyInline(this,obj,ref))
     {
         if (__sync_fetch_and_add(&refCount, -2) == 3 ) {
             destroy(obj);
         }
     }
-		target_enable_irq();
 }

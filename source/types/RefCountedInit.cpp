@@ -114,10 +114,8 @@ using namespace codal;
   */
 void RefCounted::destroy( void *obj)
 {
-		target_disable_irq();
     RefCounted_remove( this, obj);
     free(this);
-		target_enable_irq();
 }
 
 /**
@@ -125,9 +123,7 @@ void RefCounted::destroy( void *obj)
   */
 void RefCounted::init( void *obj)
 {
-		target_disable_irq();
     // Initialize to one reference (lowest bit set to 1)
     refCount = 3;
     RefCounted_add( this, obj);
-		target_enable_irq();
 }
