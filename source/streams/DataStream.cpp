@@ -156,9 +156,9 @@ ManagedBuffer DataStream::pull()
     if( this->isBlocking )
         return this->upStream->pull();
     
-    RefCounted_op( NULL, &this->nextBuffer, "nextBuf");
+    RefCounted_op( NULL, &this->nextBuffer, "nextBuffer DataStream::pull");
     ManagedBuffer tmp = this->nextBuffer; // Deep copy!
-    RefCounted_op( NULL, &tmp, "tmp");
+    RefCounted_op( NULL, &tmp, "tmp DataStream::pull");
     this->nextBuffer = ManagedBuffer();
     return tmp;
 }
@@ -192,7 +192,7 @@ int DataStream::pullRequest()
             return this->downstreamReturn;
         }
 
-        RefCounted_op( NULL, &this->nextBuffer, "nxtpull");
+        RefCounted_op( NULL, &this->nextBuffer, "nextBuffer DataStream::pullRequest");
         this->nextBuffer = this->upStream->pull();
 
         Event evt( DEVICE_ID_NOTIFY, this->pullRequestEventCode );

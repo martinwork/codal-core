@@ -34,7 +34,7 @@ namespace codal
   RefCounted_list theList;
   //RefCounted_list theAllTimeList;
 
-#define opsSIZE 50
+#define opsSIZE 60
 
   unsigned int opsUnq = 0;
   unsigned int opsSeq[ opsSIZE];
@@ -42,7 +42,7 @@ namespace codal
   RefCounted *opsPtr[ opsSIZE];
   int         opsCnt[ opsSIZE];
   void       *opsObj[ opsSIZE];
-  char        opsRef[ opsSIZE][10];
+  char        opsRef[ opsSIZE][80];
   int         opsIdx = 0;
 
   void RefCounted_dump(void)
@@ -73,15 +73,17 @@ namespace codal
 
   void RefCounted_op( RefCounted *t, void *obj, const char *ref)
   {
+    target_disable_irq();
     opsSeq[opsIdx] = opsUnq;
     opsUnq++;
     opsPtr[opsIdx] = t;
-    opsCnt[opsIdx] = t->refCount;
+    opsCnt[opsIdx] = t ? t->refCount : 0;
     opsObj[opsIdx] = obj;
     strcpy( opsRef[opsIdx], ref);
     opsIdx++;
     if (opsIdx >= opsSIZE)
       opsIdx = 0;
+    target_enable_irq();
   }
 
   void RefCounted_add( RefCounted *t, void *obj)
