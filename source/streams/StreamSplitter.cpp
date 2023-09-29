@@ -27,6 +27,7 @@ DEALINGS IN THE SOFTWARE.
 #include "StreamNormalizer.h"
 #include "ErrorNo.h"
 #include "Event.h"
+#include "CodalDmesg.h"
 
 using namespace codal;
 
@@ -45,6 +46,8 @@ SplitterChannel::~SplitterChannel()
 }
 
 int SplitterChannel::pullRequest() {
+    DMESG("SplitterChannel::pullRequest %p output %p", this, output);
+
     this->pullAttempts++;
     if( output != NULL )
         return output->pullRequest();
@@ -53,6 +56,8 @@ int SplitterChannel::pullRequest() {
 
 ManagedBuffer SplitterChannel::pull()
 {
+    DMESG("SplitterChannel::pull %p", this);
+
     this->pullAttempts = 0;
     this->sentBuffers++;
     ManagedBuffer inData = parent->getBuffer();
@@ -167,6 +172,8 @@ StreamSplitter::~StreamSplitter()
 
 ManagedBuffer StreamSplitter::getBuffer()
 {
+    DMESG("StreamSplitter::getBuffer upstream %p", &upstream);
+
     if( lastBuffer == ManagedBuffer() )
         lastBuffer = upstream.pull();
     
@@ -178,6 +185,7 @@ ManagedBuffer StreamSplitter::getBuffer()
  */
 int StreamSplitter::pullRequest()
 {
+    DMESG("StreamSplitter::pullRequest");
 
     activeChannels = 0;
 
@@ -201,6 +209,7 @@ int StreamSplitter::pullRequest()
     }
 
     lastBuffer = ManagedBuffer();
+    DMESG("StreamSplitter::pullRequest EXIT");
     return DEVICE_BUSY;
 }
 

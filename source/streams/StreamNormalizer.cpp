@@ -24,6 +24,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "StreamNormalizer.h"
 #include "ErrorNo.h"
+#include "CodalDmesg.h"
 
 using namespace codal;
 
@@ -155,6 +156,8 @@ ManagedBuffer StreamNormalizer::pull()
     int zo = (int) zeroOffset;  // Snapshot of our previously calculate zero point.
     ManagedBuffer buffer;       // The buffer being processed.
     
+    DMESG("StreamNormalizer::pull upstream %p", &upstream);
+
     // Determine the input format.
     inputFormat = upstream.getFormat();
 
@@ -226,6 +229,7 @@ ManagedBuffer StreamNormalizer::pull()
  */
 int StreamNormalizer::pullRequest()
 {
+    DMESG("StreamNormalizer::pullRequest output %p", &output);
     return output.pullRequest();
 }
 

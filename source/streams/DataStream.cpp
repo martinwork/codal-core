@@ -28,6 +28,8 @@ DEALINGS IN THE SOFTWARE.
 #include "Event.h"
 #include "CodalFiber.h"
 #include "ErrorNo.h"
+#include "CodalDmesg.h"
+
 
 using namespace codal;
 
@@ -148,6 +150,8 @@ void DataStream::setBlocking(bool isBlocking)
 
 ManagedBuffer DataStream::pull()
 {
+    DMESG("DataStream::pull %p DataSink %p DataSource %p blocking %d", this, downStream, upStream, this->isBlocking ? 1 : 0);
+    
     // 1, as we will normally be at '1' waiting buffer here if we're in-sync with the source
     if( this->missedBuffers > 1 )
         Event evt( DEVICE_ID_NOTIFY, this->flowEventCode );
@@ -155,8 +159,12 @@ ManagedBuffer DataStream::pull()
     this->missedBuffers = 0;
     // Are we running in sync (blocking) mode?
     if( this->isBlocking )
+    {
+        DMESG("DataStream::pull %p calling upStream->pull()", this);
         return this->upStream->pull();
+    }
     
+    DMESG("DataStream::pull %p returning nextBuffer", this);
     this->hasPending = false;
     return ManagedBuffer( this->nextBuffer ); // Deep copy!
 }
@@ -177,6 +185,8 @@ bool DataStream::canPull(int size)
 
 int DataStream::pullRequest()
 {
+    DMESG("DataStream::pullRequest %p DataSink %p DataSource %p blocking %d", this, downStream, upStream, this->isBlocking ? 1 : 0);
+
     // _Technically_ not a missed buffer... yet. But we can only check later.
     if( this->missedBuffers < CODAL_DATASTREAM_HIGH_WATER_MARK )
         if( ++this->missedBuffers == CODAL_DATASTREAM_HIGH_WATER_MARK )
@@ -190,6 +200,7 @@ int DataStream::pullRequest()
             return this->downstreamReturn;
         }
 
+        DMESG("DataStream::pullRequest %p setting nextBuffer", this);
         this->nextBuffer = this->upStream->pull();
         this->hasPending = true;
 
