@@ -25,13 +25,16 @@ ManagedBuffer StreamRecording::pull()
     // Wake any blocked threads once we reach the end of the playback
     if (out.length() == 0)
     {
+        DMESG("SRec::pull EMPTY");
         state = REC_STATE_STOPPED;
         playLock.notifyAll();
     }
     else
+    {
         // Indicate to the downstream that another buffer is available.
         if( downStream != NULL )
             downStream->pullRequest();
+    }
 
     // Return the block
     return out;
@@ -177,8 +180,11 @@ int StreamRecording::playAsync()
 
 void StreamRecording::play()
 {
+    DMESG("SRec::play");
     playAsync();
+    DMESG("SRec::play wait");
     playLock.wait();
+    DMESG("SRec::play done");
 }
 
 int StreamRecording::stop()
