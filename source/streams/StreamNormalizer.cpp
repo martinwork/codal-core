@@ -168,6 +168,8 @@ ManagedBuffer StreamNormalizer::pull()
     ManagedBuffer inputBuffer = upStream.pull();
     samples = inputBuffer.length() / bytesPerSampleIn;
 
+    uint8_t debugCount = inputBuffer[0];
+
     // Use in place processing where possible, but allocate a new buffer when needed.
     if (DATASTREAM_FORMAT_BYTES_PER_SAMPLE(inputFormat) == DATASTREAM_FORMAT_BYTES_PER_SAMPLE(outputFormat))
         buffer = inputBuffer;
@@ -216,6 +218,8 @@ ManagedBuffer StreamNormalizer::pull()
     // Ensure output buffer is the correct size;
     buffer.truncate(samples * bytesPerSampleOut);
 
+    buffer[0] = debugCount;
+    DMESG("Norm %d", (int)(unsigned) buffer[0]);
     return buffer;
 }
 
