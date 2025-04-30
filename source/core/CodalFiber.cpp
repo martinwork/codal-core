@@ -856,7 +856,7 @@ void FiberLock::wait()
         // It is possible that and IRQ has performed a notify() operation however.
         // If so, put ourself back on the run queue and spin the scheduler (in case we performed a fork-on-block)
         target_disable_irq();
-        if (locked < l)
+        if (locked > l)
         {
             // Remove fiber from the run queue
             dequeue_fiber(f);
