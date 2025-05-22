@@ -178,6 +178,8 @@ ManagedBuffer StreamNormalizer::pull()
     data = &inputBuffer[0];
     result = &buffer[0];
 
+    uint8_t debug_count = *data;
+
     // Iterate over the input samples and apply gain, normalization and output formatting.
     for (int i=0; i < samples; i++)
     {
@@ -215,6 +217,9 @@ ManagedBuffer StreamNormalizer::pull()
 
     // Ensure output buffer is the correct size;
     buffer.truncate(samples * bytesPerSampleOut);
+
+    if ( buffer.length() > 0)
+        buffer[0] = debug_count;
 
     return buffer;
 }

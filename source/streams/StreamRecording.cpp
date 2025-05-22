@@ -59,6 +59,8 @@ int StreamRecording::pullRequest()
     if(buffer.length() == 0)
         return DEVICE_OK;
 
+    DMESG("StreamRecording %d", (int) buffer[0]);
+
     // Store the data in our buffer, if we have space
     if (writeOffset < CODAL_DEFAULT_STREAM_RECORDING_MAX_LENGTH)
     {
