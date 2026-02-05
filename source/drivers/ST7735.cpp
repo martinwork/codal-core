@@ -144,6 +144,7 @@ struct ST7735WorkBuffer
     uint8_t dataBuf[DATABUFSIZE];
     const uint8_t *srcPtr;
     unsigned x;
+    volatile bool inProgress;
     uint32_t *paletteTable;
     unsigned srcLeft;
     uint32_t expPalette[256];
@@ -269,7 +270,7 @@ void ST7735::sendColorsStep(ST7735 *st)
         if (work->srcLeft == 0)
         {
             st->endCS();
-            st->sendDone(st);
+            st->sendDone();
         }
         else
         {
@@ -301,16 +302,17 @@ void ST7735::startRAMWR(int cmd)
     beginCS();
 }
 
-void ST7735::sendDone(ST7735 *st)
+void ST7735::sendDone()
 {
-    st->inProgressLock.notify();
+    work->inProgress = false;
+    inProgressLock.notify();
 }
 
-
-/**
-* Deprecated; no longer neccessary. sendIndexedImage handles this.
-*/
-void ST7735::waitForSendDone() {}
+void ST7735::waitForSendDone() {
+    while(work && work->inProgress) {
+        schedule();
+    } 
+}
 
 int ST7735::setSleep(bool sleepMode)
 {
@@ -359,7 +361,7 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
         return DEVICE_BUSY;
 
     work->paletteTable = palette;
-
+    work->inProgress = true;
     work->srcPtr = src;
     work->width = width;
     work->height = height;
